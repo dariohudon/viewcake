@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  role          UserRole  @default(PRESENTER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  presentations Presentation[]
+  sessions      LiveSession[]
+}
+
+enum UserRole {
+  ADMIN
+  PRESENTER
+}
+
+model Presentation {
+  id          String             @id @default(cuid())
+  title       String
+  description String?
+  deckPath    String?            // path to uploaded PDF
+  slideCount  Int                @default(0)
+  status      PresentationStatus @default(DRAFT)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  slides   Slide[]
+  sessions LiveSession[]
+}
+
+enum PresentationStatus {
+  DRAFT
+  READY
+  ARCHIVED
+}
+
+model Slide {
+  id            String   @id @default(cuid())
+  order         Int
+  title         String?
+  imagePath     String?  // path to extracted slide image
+  thumbnailPath String?
+  notes         String?  // presenter notes
+  createdAt     DateTime @default(now())
+
+  presentationId String
+  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+
+  annotations SlideAnnotation[]
+  saves       SlideSave[]
+  shares      SlideShare[]
+  events      EngagementEvent[]
+}
+
+model LiveSession {
+  id                String        @id @default(cuid())
+  code              String        @unique // short join code e.g. "ABC123"
+  status            SessionStatus @default(PENDING)
+  currentSlideIndex Int           @default(0)
+  startedAt         DateTime?
+  endedAt           DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  presentationId String
+  presentation   Presentation @relation(fields: [presentationId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  participants AudienceParticipant[]
+  events       EngagementEvent[]
+}
+
+enum SessionStatus {
+  PENDING
+  LIVE
+  ENDED
+}
+
+model AudienceParticipant {
+  id          String   @id @default(cuid())
+  displayName String?
+  email       String?
+  joinedAt    DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  sessionId String
+  session   LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  annotations SlideAnnotation[]
+  saves       SlideSave[]
+  events      EngagementEvent[]
+}
+
+model SlideAnnotation {
+  id        String   @id @default(cuid())
+  body      String
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  slideId String
+  slide   Slide  @relation(fields: [slideId], references: [id], onDelete: Cascade)
+
+  participantId String
+  participant   AudienceParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+}
+
+model SlideSave {
+  id      String   @id @default(cuid())
+  savedAt DateTime @default(now())
+
+  slideId String
+  slide   Slide  @relation(fields: [slideId], references: [id], onDelete: Cascade)
+
+  participantId String
+  participant   AudienceParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([slideId, participantId])
+}
+
+model SlideShare {
+  id        String    @id @default(cuid())
+  shareSlug String    @unique @default(cuid())
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  slideId String
+  slide   Slide  @relation(fields: [slideId], references: [id], onDelete: Cascade)
+}
+
+// Flexible event log: SLIDE_VIEW, QUESTION_SUBMIT, SAVE, etc.
+model EngagementEvent {
+  id        String   @id @default(cuid())
+  type      String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  sessionId String
+  session   LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  slideId String?
+  slide   Slide?  @relation(fields: [slideId], references: [id], onDelete: SetNull)
+
+  participantId String?
+  participant   AudienceParticipant? @relation(fields: [participantId], references: [id], onDelete: SetNull)
+}
