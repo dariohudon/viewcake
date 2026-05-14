@@ -5,6 +5,43 @@ import path from "path";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
+const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I ambiguity
+
+function generateCode(length = 6): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (b) => CODE_CHARS[b % CODE_CHARS.length]).join("");
+}
+
+export async function startSession(formData: FormData): Promise<never> {
+  const presentationId = (formData.get("presentationId") as string)?.trim();
+  if (!presentationId) throw new Error("Missing presentationId");
+
+  // Retry once on code collision (astronomically unlikely but safe)
+  let session;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const code = generateCode();
+    try {
+      session = await prisma.liveSession.create({
+        data: { presentationId, code, status: "PENDING" },
+      });
+      break;
+    } catch (e: unknown) {
+      if (
+        attempt < 2 &&
+        e instanceof Error &&
+        e.message.includes("Unique constraint")
+      ) {
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  if (!session) throw new Error("Failed to generate a unique session code");
+
+  redirect(`/sessions/${session.id}/presenter`);
+}
+
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const DECKS_DIR = path.join(process.cwd(), "uploads", "decks");
 

@@ -1,3 +1,8 @@
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
+
 export default async function LiveSessionPage({
   params,
 }: {
@@ -5,16 +10,26 @@ export default async function LiveSessionPage({
 }) {
   const { code } = await params;
 
+  const session = await prisma.liveSession.findUnique({
+    where: { code: code.toUpperCase() },
+    include: {
+      presentation: { select: { title: true } },
+    },
+  });
+
+  if (!session || session.status === "ENDED") notFound();
+
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Minimal audience header */}
       <header className="border-b border-gray-200 px-5 h-12 flex items-center justify-between">
         <span className="text-sm font-semibold text-gray-900">Viewcake</span>
-        <span className="text-xs font-mono text-gray-400 tracking-widest">{code}</span>
+        <span className="text-xs font-mono text-gray-400 tracking-widest">{session.code}</span>
       </header>
 
       {/* Slide display */}
       <div className="flex-1 flex flex-col items-center justify-center p-6">
+        <p className="text-sm font-medium text-gray-700 mb-4">{session.presentation.title}</p>
         <div className="w-full max-w-2xl aspect-video bg-gray-100 rounded-xl flex items-center justify-center mb-6">
           <p className="text-gray-400 text-sm">Waiting for presenter to share a slide…</p>
         </div>

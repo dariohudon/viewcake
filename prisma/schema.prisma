@@ -79,8 +79,8 @@ model LiveSession {
   presentationId String
   presentation   Presentation @relation(fields: [presentationId], references: [id])
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
+  userId String?
+  user   User?  @relation(fields: [userId], references: [id])
 
   participants AudienceParticipant[]
   events       EngagementEvent[]

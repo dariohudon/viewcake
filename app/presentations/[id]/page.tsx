@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import PresenterNav from "@/components/presenter/nav";
 import { prisma } from "@/lib/prisma";
+import { startSession } from "@/app/presentations/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -58,12 +59,15 @@ export default async function PresentationDetailPage({
             <p className="text-xs text-gray-400 mt-2">Created {createdAt}</p>
           </div>
           <div className="flex gap-2 shrink-0 ml-6">
-            <Link
-              href={`/sessions/${id}/presenter`}
-              className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm font-medium hover:bg-gray-700 transition-colors"
-            >
-              Start session
-            </Link>
+            <form action={startSession}>
+              <input type="hidden" name="presentationId" value={presentation.id} />
+              <button
+                type="submit"
+                className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm font-medium hover:bg-gray-700 transition-colors"
+              >
+                Start session
+              </button>
+            </form>
           </div>
         </div>
 
