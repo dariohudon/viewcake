@@ -26,14 +26,14 @@ There is no separate backend service. Server Actions and Route Handlers handle m
 | `/presentations` | List all presentations — **live, reads DB** |
 | `/presentations/new` | Create a presentation, upload deck — **live, writes DB + disk** |
 | `/presentations/[id]` | View presentation, slides, file metadata — **live, reads DB** |
-| `/sessions/[id]/presenter` | Live presenter console — placeholder |
+| `/sessions/[id]/presenter` | Live presenter console — shows real join code |
 
 ### Audience (public)
 
 | Route | Purpose |
 |---|---|
 | `/join` | Enter a join code |
-| `/live/[code]` | Follow the live session — placeholder |
+| `/live/[code]` | Follow the live session — resolves real `LiveSession` by code |
 | `/s/[shareSlug]` | View a single shared slide — placeholder |
 
 ---
@@ -62,19 +62,26 @@ The `uploads/` directory is `.gitignore`d and is not committed.
 
 ### PDF-to-slide extraction
 
-**Not yet implemented.** When a deck is uploaded, one placeholder `Slide` record (order: 1, no image) is created. Full page count detection and slide image rendering are deferred to a future pass. The placeholder ensures the data model is intact and the detail page has something to render.
+**Implemented.** When a deck is uploaded, each PDF page is rendered to a PNG image using Poppler (`pdftoppm`). One `Slide` record is created per page with the image path stored in `Slide.imagePath`.
 
-When extraction is implemented, the `Slide.imagePath` and `Slide.thumbnailPath` fields will hold relative paths under `uploads/slides/`, and `Presentation.slideCount` will reflect the true page count.
+- **Requires:** `poppler-utils` — `sudo apt install poppler-utils -y`
+- **Renderer:** `pdftoppm -r 150 -png` (150 DPI PNG)
+- **PDF storage:** `uploads/decks/<uuid>-<filename>.pdf`
+- **Slide image storage:** `uploads/slides/<presentationId>/slide-N.png`
+- **Served via:** `GET /api/uploads/slides/[presentationId]/[filename]`
+
+If rendering fails (e.g. `poppler-utils` missing or corrupt PDF), the upload falls back to creating one placeholder `Slide` record and the presentation status stays `DRAFT`. A successful render sets status to `READY`.
+
+Full PowerPoint support and AI-assisted extraction are still future work.
 
 ---
 
 ## Intentionally not built yet
 
 - **Authentication** — `userId` is nullable on `Presentation`; login form is placeholder only
-- **PDF-to-image extraction** — see section above
-- **File serving** — uploaded PDFs are stored on disk but not served over HTTP yet
-- **Real-time sync** — `/live/[code]` is static; no WebSocket or SSE
-- **Live sessions** — session start flow is a placeholder
+- **PowerPoint / PPTX support** — PDF only for now
+- **Real-time sync** — `/live/[code]` shows session info but no WebSocket or SSE
+- **Audience participant registration** — `/live/[code]` does not yet create `AudienceParticipant` records
 - **Payments / billing**
 - **AI features**
 - **Email / notifications**

@@ -4,6 +4,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { renderPdf } from "@/lib/pdf/render-pdf";
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I ambiguity
 
@@ -83,15 +84,35 @@ export async function createPresentation(
       description,
       originalFilename: file.name,
       deckPath: `uploads/decks/${filename}`,
-      slideCount: 1,
+      slideCount: 0,
       status: "DRAFT",
     },
   });
 
-  // One placeholder slide per presentation.
-  // Full PDF-to-image extraction is future work — see docs/README.md.
-  await prisma.slide.create({
-    data: { presentationId: presentation.id, order: 1 },
+  let slideCount = 1;
+  let status: "DRAFT" | "READY" = "DRAFT";
+
+  try {
+    const rendered = await renderPdf(diskPath, presentation.id);
+    await prisma.slide.createMany({
+      data: rendered.map((s) => ({
+        presentationId: presentation.id,
+        order: s.order,
+        imagePath: s.imagePath,
+      })),
+    });
+    slideCount = rendered.length;
+    status = "READY";
+  } catch (err) {
+    console.error("[pdf] Rendering failed, falling back to placeholder:", err);
+    await prisma.slide.create({
+      data: { presentationId: presentation.id, order: 1 },
+    });
+  }
+
+  await prisma.presentation.update({
+    where: { id: presentation.id },
+    data: { slideCount, status },
   });
 
   redirect(`/presentations/${presentation.id}`);

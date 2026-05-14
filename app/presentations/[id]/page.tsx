@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import PresenterNav from "@/components/presenter/nav";
@@ -125,23 +126,36 @@ export default async function PresentationDetailPage({
                   <span className="text-xs font-mono text-gray-400 w-6 text-right shrink-0">
                     {slide.order}
                   </span>
-                  <div className="w-12 h-8 rounded bg-gray-100 shrink-0" />
+                  {slide.imagePath ? (
+                    <div className="w-16 h-10 rounded overflow-hidden bg-gray-100 shrink-0 relative">
+                      <Image
+                        src={`/api/${slide.imagePath}`}
+                        alt={`Slide ${slide.order}`}
+                        fill
+                        className="object-cover"
+                        sizes="64px"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-10 rounded bg-gray-100 shrink-0" />
+                  )}
                   <p className="text-sm text-gray-600">
                     {slide.title ?? `Slide ${slide.order}`}
                   </p>
                   {!slide.imagePath && (
                     <span className="ml-auto text-xs text-gray-300">
-                      placeholder
+                      no image
                     </span>
                   )}
                 </div>
               ))
             )}
           </div>
-          <p className="mt-2 text-xs text-gray-400">
-            PDF-to-image extraction is not yet implemented. Each uploaded deck
-            creates one placeholder slide record.
-          </p>
+          {presentation.slides.some((s) => !s.imagePath) && (
+            <p className="mt-2 text-xs text-gray-400">
+              Some slides are missing images — PDF rendering may have failed on upload.
+            </p>
+          )}
         </section>
 
         {/* Sessions */}
