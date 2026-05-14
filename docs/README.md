@@ -23,18 +23,18 @@ There is no separate backend service. Server Actions and Route Handlers handle m
 |---|---|
 | `/login` | Sign-in page |
 | `/dashboard` | Overview: presentations, session stats |
-| `/presentations` | List all presentations |
-| `/presentations/new` | Create a presentation, upload deck |
-| `/presentations/[id]` | View/edit a presentation, see past sessions |
-| `/sessions/[id]/presenter` | Live presenter console: slide control, join code, participant count |
+| `/presentations` | List all presentations — **live, reads DB** |
+| `/presentations/new` | Create a presentation, upload deck — **live, writes DB + disk** |
+| `/presentations/[id]` | View presentation, slides, file metadata — **live, reads DB** |
+| `/sessions/[id]/presenter` | Live presenter console — placeholder |
 
 ### Audience (public)
 
 | Route | Purpose |
 |---|---|
 | `/join` | Enter a join code |
-| `/live/[code]` | Follow the live session, save slides, add notes, ask questions |
-| `/s/[shareSlug]` | View a single shared slide via public link |
+| `/live/[code]` | Follow the live session — placeholder |
+| `/s/[shareSlug]` | View a single shared slide — placeholder |
 
 ---
 
@@ -54,24 +54,27 @@ There is no separate backend service. Server Actions and Route Handlers handle m
 
 ---
 
-## MVP scope
+## Upload behaviour
 
-This is the foundation pass. It includes:
+Uploaded PDF files are saved to `uploads/decks/` at the project root. Files are named `<uuid>-<original-filename>.pdf` to avoid collisions. The relative path and original filename are stored on the `Presentation` record.
 
-- Clean route structure with placeholder UI
-- Full Prisma schema — all core models defined
-- File upload folder structure (`uploads/decks/`, `uploads/slides/`)
-- `.env.example` with required variables
+The `uploads/` directory is `.gitignore`d and is not committed.
+
+### PDF-to-slide extraction
+
+**Not yet implemented.** When a deck is uploaded, one placeholder `Slide` record (order: 1, no image) is created. Full page count detection and slide image rendering are deferred to a future pass. The placeholder ensures the data model is intact and the detail page has something to render.
+
+When extraction is implemented, the `Slide.imagePath` and `Slide.thumbnailPath` fields will hold relative paths under `uploads/slides/`, and `Presentation.slideCount` will reflect the true page count.
 
 ---
 
 ## Intentionally not built yet
 
-- **Authentication** — login form is a UI placeholder; no sessions or JWT
-- **PDF processing** — deck uploads UI exists but no parsing or slide extraction
-- **Real-time sync** — `/live/[code]` is static; no WebSocket or SSE yet
-- **Server Actions / API routes** — no mutations wired up
-- **Database queries** — pages render static placeholder content
+- **Authentication** — `userId` is nullable on `Presentation`; login form is placeholder only
+- **PDF-to-image extraction** — see section above
+- **File serving** — uploaded PDFs are stored on disk but not served over HTTP yet
+- **Real-time sync** — `/live/[code]` is static; no WebSocket or SSE
+- **Live sessions** — session start flow is a placeholder
 - **Payments / billing**
 - **AI features**
 - **Email / notifications**
@@ -87,10 +90,13 @@ npm install
 # 2. Copy env and fill in values
 cp .env.example .env
 
-# 3. Create the database and run migrations
+# 3. Grant schema permissions (PostgreSQL 15+)
+sudo -u postgres psql -d viewcake -c "GRANT ALL ON SCHEMA public TO viewcake_user;"
+
+# 4. Run migrations
 npx prisma migrate dev --name init
 
-# 4. Start dev server
+# 5. Start dev server
 npm run dev
 ```
 
