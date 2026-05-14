@@ -1,5 +1,7 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { slideImageUrl } from "@/lib/pdf/slide-image-url";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +15,19 @@ export default async function LiveSessionPage({
   const session = await prisma.liveSession.findUnique({
     where: { code: code.toUpperCase() },
     include: {
-      presentation: { select: { title: true } },
+      presentation: {
+        select: {
+          title: true,
+          slides: { orderBy: { order: "asc" } },
+        },
+      },
     },
   });
 
   if (!session || session.status === "ENDED") notFound();
+
+  const slides = session.presentation.slides;
+  const activeSlide = slides[session.currentSlideIndex] ?? slides[0] ?? null;
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -30,8 +40,21 @@ export default async function LiveSessionPage({
       {/* Slide display */}
       <div className="flex-1 flex flex-col items-center justify-center p-6">
         <p className="text-sm font-medium text-gray-700 mb-4">{session.presentation.title}</p>
-        <div className="w-full max-w-2xl aspect-video bg-gray-100 rounded-xl flex items-center justify-center mb-6">
-          <p className="text-gray-400 text-sm">Waiting for presenter to share a slide…</p>
+
+        <div className="w-full max-w-2xl aspect-video bg-gray-100 rounded-xl overflow-hidden relative flex items-center justify-center mb-6">
+          {activeSlide?.imagePath ? (
+            <Image
+              src={slideImageUrl(activeSlide.imagePath)}
+              alt={activeSlide.title ?? `Slide ${activeSlide.order}`}
+              fill
+              className="object-contain"
+              priority
+            />
+          ) : (
+            <p className="text-gray-400 text-sm">
+              {slides.length === 0 ? "Waiting for presenter to share a slide…" : `Slide ${(activeSlide?.order ?? 1)}`}
+            </p>
+          )}
         </div>
 
         {/* Audience actions */}

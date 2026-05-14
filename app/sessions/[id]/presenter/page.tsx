@@ -1,5 +1,7 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { slideImageUrl } from "@/lib/pdf/slide-image-url";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +15,20 @@ export default async function PresenterSessionPage({
   const session = await prisma.liveSession.findUnique({
     where: { id },
     include: {
-      presentation: { select: { id: true, title: true, slides: { orderBy: { order: "asc" } } } },
+      presentation: {
+        select: {
+          id: true,
+          title: true,
+          slides: { orderBy: { order: "asc" } },
+        },
+      },
     },
   });
 
   if (!session) notFound();
+
+  const slides = session.presentation.slides;
+  const activeSlide = slides[session.currentSlideIndex] ?? slides[0] ?? null;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
@@ -43,8 +54,20 @@ export default async function PresenterSessionPage({
       <div className="flex flex-1 overflow-hidden">
         {/* Slide area */}
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="w-full max-w-3xl aspect-video bg-gray-800 rounded-xl flex items-center justify-center">
-            <p className="text-gray-500 text-sm">{session.presentation.title}</p>
+          <div className="w-full max-w-3xl aspect-video bg-gray-800 rounded-xl overflow-hidden relative flex items-center justify-center">
+            {activeSlide?.imagePath ? (
+              <Image
+                src={slideImageUrl(activeSlide.imagePath)}
+                alt={activeSlide.title ?? `Slide ${activeSlide.order}`}
+                fill
+                className="object-contain"
+                priority
+              />
+            ) : (
+              <p className="text-gray-500 text-sm">
+                {slides.length === 0 ? "No slides loaded" : session.presentation.title}
+              </p>
+            )}
           </div>
         </div>
 
@@ -54,12 +77,33 @@ export default async function PresenterSessionPage({
             <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Slides</h2>
           </div>
           <div className="flex-1 overflow-y-auto p-4">
-            {session.presentation.slides.length === 0 ? (
+            {slides.length === 0 ? (
               <p className="text-xs text-gray-500 text-center mt-8">No slides loaded</p>
             ) : (
-              session.presentation.slides.map((slide) => (
-                <div key={slide.id} className="text-xs text-gray-400 py-1.5 border-b border-gray-800 last:border-0">
-                  {slide.title ?? `Slide ${slide.order}`}
+              slides.map((slide, i) => (
+                <div
+                  key={slide.id}
+                  className={`flex items-center gap-2 py-1.5 border-b border-gray-800 last:border-0 ${
+                    i === (session.currentSlideIndex ?? 0) ? "text-white" : "text-gray-400"
+                  }`}
+                >
+                  <span className="text-xs font-mono w-5 shrink-0">{slide.order}</span>
+                  {slide.imagePath ? (
+                    <div className="w-10 h-7 rounded overflow-hidden bg-gray-700 relative shrink-0">
+                      <Image
+                        src={slideImageUrl(slide.imagePath)}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-7 rounded bg-gray-700 shrink-0" />
+                  )}
+                  <span className="text-xs truncate">
+                    {slide.title ?? `Slide ${slide.order}`}
+                  </span>
                 </div>
               ))
             )}
