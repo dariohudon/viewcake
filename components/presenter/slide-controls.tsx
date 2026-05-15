@@ -1,47 +1,34 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { advanceSlide, goToSlide } from "@/app/sessions/actions";
 
-interface Props {
+interface NavBarProps {
   sessionId: string;
   currentIndex: number;
   slideCount: number;
 }
 
-export default function SlideControls({ sessionId, currentIndex, slideCount }: Props) {
+export function SlideNavBar({ sessionId, currentIndex, slideCount }: NavBarProps) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   const isFirst = currentIndex <= 0;
   const isLast = currentIndex >= slideCount - 1;
 
-  function handlePrev() {
-    startTransition(() => advanceSlide(sessionId, "prev"));
+  function advance(direction: "prev" | "next") {
+    startTransition(async () => {
+      await advanceSlide(sessionId, direction);
+      router.refresh();
+    });
   }
-
-  function handleNext() {
-    startTransition(() => advanceSlide(sessionId, "next"));
-  }
-
-  function handleGoTo(index: number) {
-    startTransition(() => goToSlide(sessionId, index));
-  }
-
-  return { handlePrev, handleNext, handleGoTo, pending, isFirst, isLast };
-}
-
-// Separate export for the bottom Prev/Next bar
-export function SlideNavBar({ sessionId, currentIndex, slideCount }: Props) {
-  const [pending, startTransition] = useTransition();
-
-  const isFirst = currentIndex <= 0;
-  const isLast = currentIndex >= slideCount - 1;
 
   return (
     <div className="p-4 border-t border-gray-800 flex items-center gap-2">
       <button
         disabled={isFirst || pending}
-        onClick={() => startTransition(() => advanceSlide(sessionId, "prev"))}
+        onClick={() => advance("prev")}
         className="flex-1 rounded-lg bg-gray-800 text-white py-2 text-sm hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
       >
         ← Prev
@@ -51,7 +38,7 @@ export function SlideNavBar({ sessionId, currentIndex, slideCount }: Props) {
       </span>
       <button
         disabled={isLast || pending}
-        onClick={() => startTransition(() => advanceSlide(sessionId, "next"))}
+        onClick={() => advance("next")}
         className="flex-1 rounded-lg bg-gray-800 text-white py-2 text-sm hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
       >
         Next →
@@ -60,7 +47,6 @@ export function SlideNavBar({ sessionId, currentIndex, slideCount }: Props) {
   );
 }
 
-// Sidebar slide item — clickable
 export function SidebarSlideItem({
   sessionId,
   slideIndex,
@@ -76,16 +62,24 @@ export function SidebarSlideItem({
   thumbnail: React.ReactNode;
   order: number;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const isActive = slideIndex === currentIndex;
 
+  function handleClick() {
+    startTransition(async () => {
+      await goToSlide(sessionId, slideIndex);
+      router.refresh();
+    });
+  }
+
   return (
     <button
-      onClick={() => startTransition(() => goToSlide(sessionId, slideIndex))}
-      disabled={pending}
+      onClick={handleClick}
+      disabled={pending || isActive}
       className={`w-full flex items-center gap-2 py-1.5 border-b border-gray-800 last:border-0 text-left transition-colors ${
         isActive ? "text-white" : "text-gray-400 hover:text-gray-200"
-      } disabled:opacity-50`}
+      } disabled:cursor-not-allowed ${isActive ? "" : "disabled:opacity-50"}`}
     >
       <span className="text-xs font-mono w-5 shrink-0">{order}</span>
       {thumbnail}
