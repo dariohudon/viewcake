@@ -13,18 +13,21 @@ export default async function PresenterSessionPage({
 }) {
   const { id } = await params;
 
-  const session = await prisma.liveSession.findUnique({
-    where: { id },
-    include: {
-      presentation: {
-        select: {
-          id: true,
-          title: true,
-          slides: { orderBy: { order: "asc" } },
+  const [session, participantCount] = await Promise.all([
+    prisma.liveSession.findUnique({
+      where: { id },
+      include: {
+        presentation: {
+          select: {
+            id: true,
+            title: true,
+            slides: { orderBy: { order: "asc" } },
+          },
         },
       },
-    },
-  });
+    }),
+    prisma.audienceParticipant.count({ where: { sessionId: id } }),
+  ]);
 
   if (!session) notFound();
 
@@ -53,7 +56,7 @@ export default async function PresenterSessionPage({
           </div>
           <div className="text-center">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Participants</p>
-            <p className="text-lg font-bold text-white">0</p>
+            <p className="text-lg font-bold text-white">{participantCount}</p>
           </div>
           <button className="rounded-lg bg-red-600 text-white px-4 py-1.5 text-sm font-medium hover:bg-red-700 transition-colors">
             End session
