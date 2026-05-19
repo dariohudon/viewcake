@@ -3,14 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import PresenterNav from "@/components/presenter/nav";
 import { prisma } from "@/lib/prisma";
-import { startSession } from "@/app/presentations/actions";
+import { startSession, createSlideShare } from "@/app/presentations/actions";
 
 export const dynamic = "force-dynamic";
-
-function formatBytes(path: string | null): string | null {
-  // We don't store file size yet — future enhancement
-  return path ? path.split("/").pop() ?? null : null;
-}
 
 export default async function PresentationDetailPage({
   params,
@@ -19,12 +14,17 @@ export default async function PresentationDetailPage({
 }) {
   const { id } = await params;
 
-  const presentation = await prisma.presentation.findUnique({
-    where: { id },
-    include: {
-      slides: { orderBy: { order: "asc" } },
-    },
-  });
+  const [presentation, sessions] = await Promise.all([
+    prisma.presentation.findUnique({
+      where: { id },
+      include: { slides: { orderBy: { order: "asc" } } },
+    }),
+    prisma.liveSession.findMany({
+      where: { presentationId: id },
+      orderBy: { createdAt: "desc" },
+      include: { _count: { select: { participants: true } } },
+    }),
+  ]);
 
   if (!presentation) notFound();
 
@@ -32,6 +32,15 @@ export default async function PresentationDetailPage({
     "en-CA",
     { year: "numeric", month: "long", day: "numeric" }
   );
+
+  function fmtDate(d: Date) {
+    return d.toLocaleDateString("en-CA", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
 
   return (
     <>
@@ -59,16 +68,22 @@ export default async function PresentationDetailPage({
             )}
             <p className="text-xs text-gray-400 mt-2">Created {createdAt}</p>
           </div>
-          <div className="flex gap-2 shrink-0 ml-6">
+          <div className="shrink-0 ml-6">
             <form action={startSession}>
               <input type="hidden" name="presentationId" value={presentation.id} />
               <button
                 type="submit"
-                className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm font-medium hover:bg-gray-700 transition-colors"
+                disabled={presentation.status !== "READY"}
+                className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm font-medium hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 Start session
               </button>
             </form>
+            {presentation.status !== "READY" && (
+              <p className="mt-1 text-xs text-gray-400 text-right">
+                Upload a deck first
+              </p>
+            )}
           </div>
         </div>
 
@@ -83,8 +98,9 @@ export default async function PresentationDetailPage({
                 <p className="font-medium text-gray-900">
                   {presentation.originalFilename ?? "Uploaded file"}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5 font-mono">
-                  {formatBytes(presentation.deckPath)}
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {presentation.slideCount} slide
+                  {presentation.slideCount !== 1 ? "s" : ""}
                 </p>
               </div>
               <span
@@ -139,13 +155,20 @@ export default async function PresentationDetailPage({
                   ) : (
                     <div className="w-16 h-10 rounded bg-gray-100 shrink-0" />
                   )}
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 flex-1">
                     {slide.title ?? `Slide ${slide.order}`}
                   </p>
-                  {!slide.imagePath && (
-                    <span className="ml-auto text-xs text-gray-300">
-                      no image
-                    </span>
+                  {/* Share button — only for slides with images */}
+                  {slide.imagePath && (
+                    <form action={createSlideShare} className="shrink-0">
+                      <input type="hidden" name="slideId" value={slide.id} />
+                      <button
+                        type="submit"
+                        className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+                      >
+                        Share
+                      </button>
+                    </form>
                   )}
                 </div>
               ))
@@ -153,7 +176,7 @@ export default async function PresentationDetailPage({
           </div>
           {presentation.slides.some((s) => !s.imagePath) && (
             <p className="mt-2 text-xs text-gray-400">
-              Some slides are missing images — PDF rendering may have failed on upload.
+              Slides without images had rendering failures on upload.
             </p>
           )}
         </section>
@@ -161,10 +184,56 @@ export default async function PresentationDetailPage({
         {/* Sessions */}
         <section>
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
-            Past sessions
+            Sessions
           </h2>
-          <div className="rounded-xl border border-gray-200 bg-white px-5 py-8 text-center text-sm text-gray-400">
-            Live sessions not yet implemented.
+          <div className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
+            {sessions.length === 0 ? (
+              <div className="px-5 py-8 text-center text-sm text-gray-400">
+                No sessions yet. Start one above.
+              </div>
+            ) : (
+              sessions.map((s) => (
+                <div key={s.id} className="flex items-center gap-4 px-5 py-3">
+                  <span className="font-mono text-sm font-medium text-gray-900">
+                    {s.code}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      s.status === "LIVE"
+                        ? "bg-green-100 text-green-700"
+                        : s.status === "ENDED"
+                        ? "bg-gray-100 text-gray-500"
+                        : "bg-yellow-50 text-yellow-700"
+                    }`}
+                  >
+                    {s.status.toLowerCase()}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {s.startedAt ? fmtDate(s.startedAt) : fmtDate(s.createdAt)}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {s._count.participants} participant
+                    {s._count.participants !== 1 ? "s" : ""}
+                  </span>
+                  <div className="ml-auto flex gap-2 shrink-0">
+                    {s.status !== "ENDED" && (
+                      <Link
+                        href={`/sessions/${s.id}/presenter`}
+                        className="text-xs text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+                      >
+                        {s.status === "LIVE" ? "Rejoin" : "Open"}
+                      </Link>
+                    )}
+                    <Link
+                      href={`/sessions/${s.id}/summary`}
+                      className="text-xs text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+                    >
+                      Summary
+                    </Link>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </section>
       </main>

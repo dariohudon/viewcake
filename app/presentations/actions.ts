@@ -117,3 +117,14 @@ export async function createPresentation(
 
   redirect(`/presentations/${presentation.id}`);
 }
+
+export async function createSlideShare(formData: FormData): Promise<never> {
+  const slideId = (formData.get("slideId") as string)?.trim();
+  if (!slideId) throw new Error("Missing slideId");
+
+  const share = await prisma.slideShare.create({
+    data: { slideId },
+  });
+
+  redirect(`/s/${share.shareSlug}`);
+}
