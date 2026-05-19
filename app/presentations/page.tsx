@@ -1,6 +1,7 @@
 import Link from "next/link";
 import PresenterNav from "@/components/presenter/nav";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,14 @@ function statusBadge(status: string) {
 }
 
 export default async function PresentationsPage() {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  // Show the user's own presentations plus any orphaned (null userId) legacy records
   const presentations = await prisma.presentation.findMany({
+    where: userId
+      ? { OR: [{ userId }, { userId: null }] }
+      : { userId: null },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,

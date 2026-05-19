@@ -4,6 +4,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { renderPdf } from "@/lib/pdf/render-pdf";
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I ambiguity
@@ -14,6 +15,9 @@ function generateCode(length = 6): string {
 }
 
 export async function startSession(formData: FormData): Promise<never> {
+  const authSession = await auth();
+  const userId = authSession?.user?.id ?? null;
+
   const presentationId = (formData.get("presentationId") as string)?.trim();
   if (!presentationId) throw new Error("Missing presentationId");
 
@@ -23,7 +27,7 @@ export async function startSession(formData: FormData): Promise<never> {
     const code = generateCode();
     try {
       session = await prisma.liveSession.create({
-        data: { presentationId, code, status: "PENDING" },
+        data: { presentationId, code, status: "PENDING", userId },
       });
       break;
     } catch (e: unknown) {
@@ -52,6 +56,9 @@ export async function createPresentation(
   _prev: CreatePresentationState,
   formData: FormData
 ): Promise<CreatePresentationState> {
+  const authSession = await auth();
+  const userId = authSession?.user?.id ?? null;
+
   const title = (formData.get("title") as string)?.trim();
   const description = (formData.get("description") as string)?.trim() || null;
   const file = formData.get("deck") as File | null;
@@ -84,6 +91,7 @@ export async function createPresentation(
       description,
       originalFilename: file.name,
       deckPath: `uploads/decks/${filename}`,
+      userId,
       slideCount: 0,
       status: "DRAFT",
     },

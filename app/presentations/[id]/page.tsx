@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import PresenterNav from "@/components/presenter/nav";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { startSession, createSlideShare } from "@/app/presentations/actions";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,9 @@ export default async function PresentationDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  const session = await auth();
+  const userId = session?.user?.id ?? null;
 
   const [presentation, sessions] = await Promise.all([
     prisma.presentation.findUnique({
@@ -27,6 +31,11 @@ export default async function PresentationDetailPage({
   ]);
 
   if (!presentation) notFound();
+
+  // Presentations with a userId must belong to the current user
+  if (presentation.userId !== null && presentation.userId !== userId) {
+    notFound();
+  }
 
   const createdAt = new Date(presentation.createdAt).toLocaleDateString(
     "en-CA",
