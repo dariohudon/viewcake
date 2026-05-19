@@ -1,3 +1,3 @@
 # Current Sprint
 
-sprint-b-post-session-value.md
+sprint-c-auth-ownership.md
