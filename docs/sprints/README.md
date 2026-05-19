@@ -1,17 +1,15 @@
 # Viewcake Sprint Queue
 
-This folder stores implementation sprints for Claude Code.
+This folder stores the Claude Code sprint queue for Viewcake.
 
 Workflow:
 
-1. Read the current sprint file.
-2. Paste the `/goal` into Claude Code.
-3. Paste the implementation prompt into Claude Code.
-4. Claude audits, implements, builds, restarts PM2, verifies, reports, and stops.
-5. Human reviews the report.
-6. Commit and push.
-7. Move to the next sprint.
+1. Run: ./scripts/next-sprint.sh
+2. Copy the printed Goal into Claude Code.
+3. Copy the printed Prompt into Claude Code.
+4. Claude completes the sprint, builds, restarts PM2, verifies, reports, and stops.
+5. Human reviews, tests, commits, and pushes.
+6. Run: ./scripts/advance-sprint.sh
+7. Repeat.
 
-Important:
-
-Claude should complete one sprint at a time and stop for review. Do not allow Claude to automatically continue into the next sprint without a checkpoint.
+Claude should complete one sprint at a time and stop for review.
