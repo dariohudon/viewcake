@@ -8,13 +8,12 @@ type Slide = {
   id: string;
   order: number;
   title: string | null;
-  imagePath: string | null;
+  imageUrl: string | null; // pre-resolved URL string from the server page
 };
 
 type Question = {
   id: string;
   body: string;
-  createdAt: Date;
   participant: { displayName: string | null } | null;
   slide: { order: number } | null;
 };
@@ -24,7 +23,6 @@ interface Props {
   currentIndex: number;
   slides: Slide[];
   questions: Question[];
-  slideImageUrl: (path: string) => string;
 }
 
 export default function PresenterSidebar({
@@ -32,7 +30,6 @@ export default function PresenterSidebar({
   currentIndex,
   slides,
   questions,
-  slideImageUrl,
 }: Props) {
   const [tab, setTab] = useState<"slides" | "questions">("slides");
 
@@ -85,10 +82,10 @@ export default function PresenterSidebar({
                   order={slide.order}
                   label={slide.title ?? `Slide ${slide.order}`}
                   thumbnail={
-                    slide.imagePath ? (
+                    slide.imageUrl ? (
                       <div className="w-10 h-7 rounded overflow-hidden bg-gray-700 relative shrink-0">
                         <Image
-                          src={slideImageUrl(slide.imagePath)}
+                          src={slide.imageUrl}
                           alt=""
                           fill
                           className="object-cover"

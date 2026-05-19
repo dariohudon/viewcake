@@ -45,14 +45,30 @@ export default async function PresenterSessionPage({
 
   if (!session) notFound();
 
-  const slides = session.presentation.slides;
+  const rawSlides = session.presentation.slides;
   const currentIndex = Math.max(
     0,
-    Math.min(session.currentSlideIndex, slides.length - 1)
+    Math.min(session.currentSlideIndex, rawSlides.length - 1)
   );
-  const activeSlide = slides[currentIndex] ?? null;
+  const activeSlide = rawSlides[currentIndex] ?? null;
   const isLive = session.status === "LIVE";
   const isPending = session.status === "PENDING";
+
+  // Resolve image URLs server-side so only plain strings reach client components
+  const slides = rawSlides.map((s) => ({
+    id: s.id,
+    order: s.order,
+    title: s.title,
+    imageUrl: s.imagePath ? slideImageUrl(s.imagePath) : null,
+  }));
+
+  // Strip Date objects — sidebar only needs body, participant name, and slide order
+  const serialisableQuestions = questions.map((q) => ({
+    id: q.id,
+    body: q.body,
+    participant: q.participant ? { displayName: q.participant.displayName } : null,
+    slide: q.slide ? { order: q.slide.order } : null,
+  }));
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
@@ -72,7 +88,7 @@ export default async function PresenterSessionPage({
           <div className="text-center">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Slide</p>
             <p className="text-lg font-bold text-white tabular-nums">
-              {slides.length > 0 ? `${currentIndex + 1} / ${slides.length}` : "—"}
+              {rawSlides.length > 0 ? `${currentIndex + 1} / ${rawSlides.length}` : "—"}
             </p>
           </div>
           <div className="text-center">
@@ -149,8 +165,7 @@ export default async function PresenterSessionPage({
           sessionId={id}
           currentIndex={currentIndex}
           slides={slides}
-          questions={questions}
-          slideImageUrl={slideImageUrl}
+          questions={serialisableQuestions}
         />
       </div>
     </div>
