@@ -6,10 +6,10 @@
 - 004 Live Session Slide Rendering
 - 005 Presenter Slide Controls + Audience Polling
 - 006 Audience Join Gate
-
-# Combined Sprints
-
 - Sprint A: Live Audience Engagement MVP
+
+# Remaining Combined Sprints
+
 - Sprint B: Post-Session Value + Product Hardening
 - Sprint C: Auth + Ownership
 - Sprint D: Deployment Hardening + MVP Cleanup
