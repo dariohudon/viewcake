@@ -1,3 +1,3 @@
 # Current Sprint
 
-sprint-c-auth-ownership.md
+All planned MVP sprints complete. See COMPLETED.md.

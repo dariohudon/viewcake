@@ -1,4 +1,4 @@
-# Completed Checkpoints
+# Completed
 
 - 001 Foundation Live
 - 002 Presentation Upload + Live Session Foundation
@@ -7,9 +7,6 @@
 - 005 Presenter Slide Controls + Audience Polling
 - 006 Audience Join Gate
 - Sprint A: Live Audience Engagement MVP
-
-# Remaining Combined Sprints
-
 - Sprint B: Post-Session Value + Product Hardening
 - Sprint C: Auth + Ownership
 - Sprint D: Deployment Hardening + MVP Cleanup

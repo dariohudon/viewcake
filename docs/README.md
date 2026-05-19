@@ -1,116 +1,216 @@
-# Viewcake
+# Viewcake — Operations Guide
 
-Real-time presentation amplification. A presenter runs a live deck session; audience members follow along, save slides, add private notes, ask questions, and share individual slides via a public link.
+Real-time presentation amplification. Presenter uploads a PDF deck, starts a live session, shares a join code. Audience joins from any device, follows along, saves slides, asks questions.
+
+---
+
+## Deployment
+
+| Detail | Value |
+|---|---|
+| App path | `/var/www/viewcake` |
+| PM2 process name | `viewcake` |
+| Local port | `3020` |
+| Public URL | `https://viewcake.brightening.ca` |
+| Tunnel | Cloudflare (`cloudflared`) — tunnels public URL to `localhost:3020` |
+
+---
+
+## System Dependencies
+
+```bash
+# PostgreSQL (14+)
+sudo apt install postgresql postgresql-contrib -y
+
+# Poppler — PDF-to-image rendering
+sudo apt install poppler-utils -y
+
+# Node.js (20+)
+# Use nvm or your preferred method
+```
+
+---
+
+## First-Time Setup
+
+```bash
+cd /var/www/viewcake
+
+# 1. Install Node dependencies
+npm install
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env — fill in DATABASE_URL, AUTH_SECRET, APP_URL
+
+# 3. Create PostgreSQL user and database
+sudo -u postgres psql <<SQL
+CREATE USER viewcake_user WITH PASSWORD 'your-password';
+CREATE DATABASE viewcake OWNER viewcake_user;
+GRANT ALL ON SCHEMA public TO viewcake_user;
+SQL
+
+# 4. Run migrations
+npx prisma migrate deploy
+
+# 5. Build
+npm run build
+
+# 6. Start with PM2
+pm2 start ecosystem.config.js
+pm2 save
+```
+
+---
+
+## Routine Deployment (Updates)
+
+```bash
+cd /var/www/viewcake
+
+npm run build
+pm2 restart viewcake
+pm2 save
+```
+
+---
+
+## Route Map
+
+### Presenter (requires login)
+
+| Route | Purpose |
+|---|---|
+| `/login` | Sign in |
+| `/register` | Create a presenter account |
+| `/dashboard` | Overview: presentations, session stats |
+| `/presentations` | List all presentations |
+| `/presentations/new` | Upload a PDF deck, create presentation |
+| `/presentations/[id]` | View presentation, slides, sessions, share links |
+| `/sessions/[id]/presenter` | Live presenter console — slide control, join code, questions |
+| `/sessions/[id]/summary` | Post-session review — participants, saves, questions, export |
+
+### Audience (public — no login required)
+
+| Route | Purpose |
+|---|---|
+| `/join` | Enter a session join code |
+| `/live/[code]` | Follow the live session; save slides, ask questions, add notes |
+| `/s/[shareSlug]` | View a single shared slide via public link |
 
 ---
 
 ## Architecture
 
-One Next.js App Router application serving two distinct experiences:
+One Next.js 15 App Router application. No separate backend service.
 
-**Presenter side** — authenticated routes under `/dashboard`, `/presentations`, and `/sessions`.  
-**Audience side** — unauthenticated routes under `/join`, `/live/[code]`, and `/s/[shareSlug]`.
-
-There is no separate backend service. Server Actions and Route Handlers handle mutations. Prisma talks to PostgreSQL.
-
----
-
-## Route map
-
-### Presenter (requires auth)
-
-| Route | Purpose |
-|---|---|
-| `/login` | Sign-in page |
-| `/dashboard` | Overview: presentations, session stats |
-| `/presentations` | List all presentations — **live, reads DB** |
-| `/presentations/new` | Create a presentation, upload deck — **live, writes DB + disk** |
-| `/presentations/[id]` | View presentation, slides, file metadata — **live, reads DB** |
-| `/sessions/[id]/presenter` | Live presenter console — shows real join code |
-
-### Audience (public)
-
-| Route | Purpose |
-|---|---|
-| `/join` | Enter a join code |
-| `/live/[code]` | Follow the live session — resolves real `LiveSession` by code |
-| `/s/[shareSlug]` | View a single shared slide — placeholder |
+- Server Actions handle all mutations
+- Route Handlers serve uploaded slide images
+- Prisma + PostgreSQL for all data
+- JWT sessions via Auth.js v5 (next-auth)
+- Middleware protects presenter routes at the edge
 
 ---
 
-## Data models
+## Data Models
 
 | Model | Description |
 |---|---|
-| `User` | Presenter account |
-| `Presentation` | A deck with metadata and slide count |
-| `Slide` | Individual slide with image path, order, presenter notes |
-| `LiveSession` | A live instance of a presentation; holds join code and current slide index |
-| `AudienceParticipant` | Anonymous or named person who joined a session |
-| `SlideAnnotation` | A note left by an audience member on a slide |
-| `SlideSave` | An audience member bookmarking a slide |
-| `SlideShare` | A public share link for a single slide |
-| `EngagementEvent` | Flexible event log (slide views, questions, saves) for analytics |
+| `User` | Presenter account (email + hashed password) |
+| `Presentation` | Uploaded deck — title, description, deckPath, status |
+| `Slide` | One page from a presentation — order, imagePath |
+| `LiveSession` | One live event — join code, currentSlideIndex, status |
+| `AudienceParticipant` | A named viewer who joined a session |
+| `SlideAnnotation` | Note (`isPublic=false`) or question (`isPublic=true`) on a slide |
+| `SlideSave` | Audience member bookmarking a slide |
+| `SlideShare` | Public share link for a single slide (`/s/[shareSlug]`) |
+| `EngagementEvent` | Event log: SAVE, NOTE, QUESTION |
 
 ---
 
-## Upload behaviour
+## File Storage
 
-Uploaded PDF files are saved to `uploads/decks/` at the project root. Files are named `<uuid>-<original-filename>.pdf` to avoid collisions. The relative path and original filename are stored on the `Presentation` record.
+Uploads are stored on disk, not in Git or any object store.
 
-The `uploads/` directory is `.gitignore`d and is not committed.
+| Path | Contents |
+|---|---|
+| `uploads/decks/` | Uploaded PDF files — named `<uuid>-<original>.pdf` |
+| `uploads/slides/<presentationId>/` | Rendered PNG images — named `slide-N.png` |
 
-### PDF-to-slide extraction
+The `uploads/` directory is `.gitignore`d. It must be backed up separately — see [Backup](#backup).
 
-**Implemented.** When a deck is uploaded, each PDF page is rendered to a PNG image using Poppler (`pdftoppm`). One `Slide` record is created per page with the image path stored in `Slide.imagePath`.
+Slide images are served via `GET /api/uploads/slides/[presentationId]/[filename]`.
 
-- **Requires:** `poppler-utils` — `sudo apt install poppler-utils -y`
-- **Renderer:** `pdftoppm -r 150 -png` (150 DPI PNG)
-- **PDF storage:** `uploads/decks/<uuid>-<filename>.pdf`
-- **Slide image storage:** `uploads/slides/<presentationId>/slide-N.png`
-- **Served via:** `GET /api/uploads/slides/[presentationId]/[filename]`
+### PDF-to-slide Extraction
 
-If rendering fails (e.g. `poppler-utils` missing or corrupt PDF), the upload falls back to creating one placeholder `Slide` record and the presentation status stays `DRAFT`. A successful render sets status to `READY`.
-
-Full PowerPoint support and AI-assisted extraction are still future work.
+On upload, each PDF page is rendered to PNG using Poppler (`pdftoppm -r 150 -png`). One `Slide` record is created per page. If rendering fails, one placeholder `Slide` is created and the presentation status stays `DRAFT`. A successful render sets status to `READY`.
 
 ---
 
-## Intentionally not built yet
+## Environment Variables
 
-- **Authentication** — `userId` is nullable on `Presentation`; login form is placeholder only
-- **PowerPoint / PPTX support** — PDF only for now
-- **Real-time sync** — `/live/[code]` shows session info but no WebSocket or SSE
-- **Audience participant registration** — `/live/[code]` does not yet create `AudienceParticipant` records
-- **Payments / billing**
-- **AI features**
-- **Email / notifications**
-
----
-
-## Setup
-
-```bash
-# 1. Install dependencies
-npm install
-
-# 2. Copy env and fill in values
-cp .env.example .env
-
-# 3. Grant schema permissions (PostgreSQL 15+)
-sudo -u postgres psql -d viewcake -c "GRANT ALL ON SCHEMA public TO viewcake_user;"
-
-# 4. Run migrations
-npx prisma migrate dev --name init
-
-# 5. Start dev server
-npm run dev
-```
-
-### Environment variables
+See `.env.example` for the full list. Required in production:
 
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string |
-| `AUTH_SECRET` | Secret for future auth (generate: `openssl rand -base64 32`) |
-| `APP_URL` | Public base URL of the app |
+| `AUTH_SECRET` | JWT signing secret — generate with `openssl rand -base64 32` |
+| `AUTH_URL` | Canonical base URL of the app — used by Auth.js for redirects |
+| `APP_URL` | Same as AUTH_URL in most setups |
+
+---
+
+## Backup
+
+### Uploads (PDF decks + slide images)
+
+Git does not back up `uploads/`. Back it up separately:
+
+```bash
+# Snapshot uploads to a dated tarball
+tar -czf /backups/viewcake-uploads-$(date +%Y%m%d).tar.gz /var/www/viewcake/uploads/
+
+# Or rsync to a remote host
+rsync -avz /var/www/viewcake/uploads/ user@backup-host:/backups/viewcake/uploads/
+```
+
+### PostgreSQL Database
+
+```bash
+# Dump the database
+PGPASSWORD="your-password" pg_dump -U viewcake_user -h localhost viewcake \
+  > /backups/viewcake-db-$(date +%Y%m%d).sql
+
+# Restore from a dump
+PGPASSWORD="your-password" psql -U viewcake_user -h localhost viewcake \
+  < /backups/viewcake-db-20260519.sql
+```
+
+A cron job example (daily at 2am):
+
+```cron
+0 2 * * * tar -czf /backups/viewcake-uploads-$(date +\%Y\%m\%d).tar.gz /var/www/viewcake/uploads/ && PGPASSWORD="pw" pg_dump -U viewcake_user viewcake > /backups/viewcake-db-$(date +\%Y\%m\%d).sql
+```
+
+---
+
+## Health Check
+
+```bash
+bash /var/www/viewcake/scripts/health-check.sh
+```
+
+---
+
+## Known Limitations (MVP)
+
+- No WebSocket/SSE — audience polling uses `router.refresh()` every 3 s (up to 3 s lag)
+- No PowerPoint/PPTX support — PDF only
+- No email notifications
+- No payments or billing
+- No team/organization support
+- No AI features
+- File uploads are local disk only — no S3 or object store
+- No automated backup — manual steps required (see above)
+- `uploads/` is not replicated across servers (single-node only)
+- Participant count on presenter view updates on polling interval, not instantly
