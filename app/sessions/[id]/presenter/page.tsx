@@ -2,7 +2,9 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { slideImageUrl } from "@/lib/pdf/slide-image-url";
-import { SlideNavBar, SidebarSlideItem } from "@/components/presenter/slide-controls";
+import PresenterSidebar from "@/components/presenter/presenter-sidebar";
+import SlidePoller from "@/components/audience/slide-poller";
+import { endSession, setSessionLive } from "@/app/sessions/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,7 @@ export default async function PresenterSessionPage({
 }) {
   const { id } = await params;
 
-  const [session, participantCount] = await Promise.all([
+  const [session, participantCount, questions] = await Promise.all([
     prisma.liveSession.findUnique({
       where: { id },
       include: {
@@ -27,6 +29,18 @@ export default async function PresenterSessionPage({
       },
     }),
     prisma.audienceParticipant.count({ where: { sessionId: id } }),
+    prisma.slideAnnotation.findMany({
+      where: {
+        isPublic: true,
+        participant: { sessionId: id },
+      },
+      include: {
+        participant: { select: { displayName: true } },
+        slide: { select: { order: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
   ]);
 
   if (!session) notFound();
@@ -37,16 +51,23 @@ export default async function PresenterSessionPage({
     Math.min(session.currentSlideIndex, slides.length - 1)
   );
   const activeSlide = slides[currentIndex] ?? null;
+  const isLive = session.status === "LIVE";
+  const isPending = session.status === "PENDING";
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+      {/* Polls every 5s so participant count and questions stay fresh */}
+      <SlidePoller intervalMs={5000} />
+
       {/* Session header bar */}
-      <header className="border-b border-gray-800 px-6 h-14 flex items-center justify-between">
+      <header className="border-b border-gray-800 px-6 h-14 flex items-center justify-between shrink-0">
         <span className="text-sm font-semibold text-white">Viewcake</span>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-5">
           <div className="text-center">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Join code</p>
-            <p className="text-lg font-bold tracking-widest text-white font-mono">{session.code}</p>
+            <p className="text-lg font-bold tracking-widest text-white font-mono">
+              {session.code}
+            </p>
           </div>
           <div className="text-center">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Slide</p>
@@ -58,15 +79,51 @@ export default async function PresenterSessionPage({
             <p className="text-xs text-gray-400 uppercase tracking-wide">Participants</p>
             <p className="text-lg font-bold text-white">{participantCount}</p>
           </div>
-          <button className="rounded-lg bg-red-600 text-white px-4 py-1.5 text-sm font-medium hover:bg-red-700 transition-colors">
-            End session
-          </button>
+
+          {/* Status badge */}
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              isLive
+                ? "bg-green-500/20 text-green-400"
+                : "bg-yellow-500/20 text-yellow-400"
+            }`}
+          >
+            {session.status.toLowerCase()}
+          </span>
+
+          {/* Go Live (only when pending) */}
+          {isPending && (
+            <form
+              action={async () => {
+                "use server";
+                await setSessionLive(id);
+              }}
+            >
+              <button
+                type="submit"
+                className="rounded-lg bg-green-600 text-white px-4 py-1.5 text-sm font-medium hover:bg-green-700 transition-colors"
+              >
+                Go Live
+              </button>
+            </form>
+          )}
+
+          {/* End session */}
+          <form action={endSession}>
+            <input type="hidden" name="sessionId" value={id} />
+            <button
+              type="submit"
+              className="rounded-lg bg-red-600 text-white px-4 py-1.5 text-sm font-medium hover:bg-red-700 transition-colors"
+            >
+              End session
+            </button>
+          </form>
         </div>
       </header>
 
-      {/* Main presenter view */}
+      {/* Main area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Slide area */}
+        {/* Slide canvas */}
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="w-full max-w-3xl aspect-video bg-gray-800 rounded-xl overflow-hidden relative flex items-center justify-center">
             {activeSlide?.imagePath ? (
@@ -79,54 +136,22 @@ export default async function PresenterSessionPage({
               />
             ) : (
               <p className="text-gray-500 text-sm">
-                {slides.length === 0 ? "No slides loaded" : session.presentation.title}
+                {slides.length === 0
+                  ? "No slides loaded"
+                  : session.presentation.title}
               </p>
             )}
           </div>
         </div>
 
-        {/* Right panel */}
-        <aside className="w-72 border-l border-gray-800 flex flex-col">
-          <div className="p-4 border-b border-gray-800">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Slides</h2>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4">
-            {slides.length === 0 ? (
-              <p className="text-xs text-gray-500 text-center mt-8">No slides loaded</p>
-            ) : (
-              slides.map((slide, i) => (
-                <SidebarSlideItem
-                  key={slide.id}
-                  sessionId={id}
-                  slideIndex={i}
-                  currentIndex={currentIndex}
-                  order={slide.order}
-                  label={slide.title ?? `Slide ${slide.order}`}
-                  thumbnail={
-                    slide.imagePath ? (
-                      <div className="w-10 h-7 rounded overflow-hidden bg-gray-700 relative shrink-0">
-                        <Image
-                          src={slideImageUrl(slide.imagePath)}
-                          alt=""
-                          fill
-                          className="object-cover"
-                          sizes="40px"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-10 h-7 rounded bg-gray-700 shrink-0" />
-                    )
-                  }
-                />
-              ))
-            )}
-          </div>
-          <SlideNavBar
-            sessionId={id}
-            currentIndex={currentIndex}
-            slideCount={slides.length}
-          />
-        </aside>
+        {/* Right sidebar */}
+        <PresenterSidebar
+          sessionId={id}
+          currentIndex={currentIndex}
+          slides={slides}
+          questions={questions}
+          slideImageUrl={slideImageUrl}
+        />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
 export async function advanceSlide(
@@ -23,7 +24,7 @@ export async function advanceSlide(
       ? Math.min(current + 1, total - 1)
       : Math.max(current - 1, 0);
 
-  if (next === current) return; // already at boundary
+  if (next === current) return;
 
   await prisma.liveSession.update({
     where: { id: sessionId },
@@ -55,4 +56,25 @@ export async function goToSlide(
   });
 
   revalidatePath(`/sessions/${sessionId}/presenter`);
+}
+
+export async function setSessionLive(sessionId: string): Promise<void> {
+  await prisma.liveSession.update({
+    where: { id: sessionId },
+    data: { status: "LIVE", startedAt: new Date() },
+  });
+  revalidatePath(`/sessions/${sessionId}/presenter`);
+}
+
+export async function endSession(formData: FormData): Promise<never> {
+  const sessionId = (formData.get("sessionId") as string)?.trim();
+  if (!sessionId) throw new Error("Missing sessionId");
+
+  const session = await prisma.liveSession.update({
+    where: { id: sessionId },
+    data: { status: "ENDED", endedAt: new Date() },
+    select: { presentationId: true },
+  });
+
+  redirect(`/presentations/${session.presentationId}`);
 }
