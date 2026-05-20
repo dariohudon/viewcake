@@ -6,6 +6,8 @@ import SlidePoller from "@/components/audience/slide-poller";
 import JoinGate from "@/components/audience/join-gate";
 import AudienceActions from "@/components/audience/audience-actions";
 import AudienceNotes from "@/components/audience/audience-notes";
+import AudienceTakeaways from "@/components/audience/audience-takeaways";
+import ViewcakeLogo from "@/components/brand/viewcake-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +45,7 @@ export default async function LiveSessionPage({
         <SlidePoller />
 
         <header className="border-b border-gray-200 px-5 h-12 flex items-center justify-between">
-          <span className="text-sm font-semibold text-gray-900">Viewcake</span>
+          <ViewcakeLogo size="sm" />
           <span className="text-xs font-mono text-gray-400 tracking-widest">
             {session.code}
           </span>
@@ -91,6 +93,8 @@ export default async function LiveSessionPage({
           sessionCode={session.code}
           slideId={activeSlide?.id ?? null}
         />
+
+        <AudienceTakeaways sessionCode={session.code} />
       </div>
     </JoinGate>
   );

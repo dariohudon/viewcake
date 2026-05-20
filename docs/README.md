@@ -95,8 +95,9 @@ pm2 save
 | Route | Purpose |
 |---|---|
 | `/join` | Enter a session join code |
-| `/live/[code]` | Follow the live session; save slides, ask questions, add notes |
+| `/live/[code]` | Follow the live session; save slides, ask questions, add notes, get takeaways link |
 | `/s/[shareSlug]` | View a single shared slide via public link |
+| `/takeaways/[token]` | Private takeaways page — saved slides, notes, questions for one participant |
 
 ---
 
@@ -202,11 +203,31 @@ bash /var/www/viewcake/scripts/health-check.sh
 
 ---
 
+## Audience Takeaways
+
+Each audience participant gets a private takeaways page at `/takeaways/[token]`. The token is an unguessable UUID stored in the participant's browser localStorage and in the database.
+
+The takeaways page shows:
+- Presentation title, session code, and date (when the session started)
+- Saved slides with clickable thumbnails (click to open full-size view)
+- Private notes grouped by slide
+- Questions asked
+- Copy link / copy plain-text export
+
+Slide thumbnails are clickable — clicking opens a fullscreen lightbox. Press Escape or click outside to close.
+
+Audience participants can also save their email on the live page. The email is stored on the `AudienceParticipant` record. **Email delivery is not yet configured** — the email is saved but no message is sent. The takeaways link is always accessible directly.
+
+There are no audience accounts or passwords. The token is the only credential.
+
+---
+
 ## Known Limitations (MVP)
 
 - No WebSocket/SSE — audience polling uses `router.refresh()` every 3 s (up to 3 s lag)
 - No PowerPoint/PPTX support — PDF only
-- No email notifications
+- No email delivery — audience email is captured but not sent (no provider configured)
+- No audience accounts — takeaways are token-only, no login
 - No payments or billing
 - No team/organization support
 - No AI features

@@ -3,3 +3,23 @@
 @theme inline {
   --font-sans: var(--font-geist);
 }
+
+/* Prevent horizontal overflow from any element overflowing the viewport */
+body {
+  overflow-x: hidden;
+}
+
+/*
+  Prevent iOS Safari from auto-zooming when an input or textarea is focused.
+  iOS zooms in when the focused element has font-size < 16px.
+  The !important is needed to override Tailwind's text-sm / text-xs utility
+  classes which compile to 14px / 12px.
+  We scope this to touch/pointer-coarse devices so desktop styling is unaffected.
+*/
+@media (hover: none) and (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

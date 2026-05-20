@@ -5,7 +5,8 @@ import { joinSession, updateLastSeen } from "@/app/live/actions";
 
 type Status = "loading" | "prompt" | "joined";
 
-const storageKey = (code: string) => `vc_participant_${code.toUpperCase()}`;
+const participantKey = (code: string) => `vc_participant_${code.toUpperCase()}`;
+const tokenKey = (code: string) => `vc_token_${code.toUpperCase()}`;
 
 export default function JoinGate({
   sessionId,
@@ -22,9 +23,8 @@ export default function JoinGate({
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    const stored = localStorage.getItem(storageKey(sessionCode));
+    const stored = localStorage.getItem(participantKey(sessionCode));
     if (stored) {
-      // Returning participant — update heartbeat silently, proceed immediately
       setStatus("joined");
       updateLastSeen(stored).catch(() => undefined);
     } else {
@@ -41,8 +41,9 @@ export default function JoinGate({
     }
     setError(null);
     startTransition(async () => {
-      const { participantId } = await joinSession(sessionId, trimmed);
-      localStorage.setItem(storageKey(sessionCode), participantId);
+      const { participantId, takeawayToken } = await joinSession(sessionId, trimmed);
+      localStorage.setItem(participantKey(sessionCode), participantId);
+      localStorage.setItem(tokenKey(sessionCode), takeawayToken);
       setStatus("joined");
     });
   }
@@ -90,6 +91,5 @@ export default function JoinGate({
     );
   }
 
-  // status === "joined"
   return <>{children}</>;
 }

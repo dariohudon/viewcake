@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { slideImageUrl } from "@/lib/pdf/slide-image-url";
+import ViewcakeLogo from "@/components/brand/viewcake-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -63,12 +64,9 @@ export default async function SlideSharePage({
         </p>
 
         {/* Footer */}
-        <div className="text-center">
-          <Link
-            href="/"
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            Shared via Viewcake
+        <div className="flex justify-center">
+          <Link href="/" className="opacity-50 hover:opacity-80 transition-opacity">
+            <ViewcakeLogo size="sm" className="text-gray-500" />
           </Link>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { signOutAction } from "@/app/auth/actions";
+import ViewcakeLogo from "@/components/brand/viewcake-logo";
 
 export default async function PresenterNav() {
   const session = await auth();
@@ -9,8 +10,8 @@ export default async function PresenterNav() {
   return (
     <nav className="border-b border-gray-200 bg-white">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link href="/dashboard" className="text-lg font-bold text-gray-900">
-          Viewcake
+        <Link href="/dashboard" className="hover:opacity-80 transition-opacity">
+          <ViewcakeLogo size="sm" />
         </Link>
         <div className="flex items-center gap-5 text-sm text-gray-600">
           <Link href="/dashboard" className="hover:text-gray-900">

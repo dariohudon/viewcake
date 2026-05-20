@@ -93,11 +93,12 @@ enum SessionStatus {
 }
 
 model AudienceParticipant {
-  id          String   @id @default(cuid())
-  displayName String?
-  email       String?
-  joinedAt    DateTime @default(now())
-  lastSeenAt  DateTime @default(now())
+  id            String   @id @default(cuid())
+  displayName   String?
+  email         String?
+  takeawayToken String?  @unique // unguessable token for /takeaways/[token]
+  joinedAt      DateTime @default(now())
+  lastSeenAt    DateTime @default(now())
 
   sessionId String
   session   LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)

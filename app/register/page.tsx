@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { registerAction } from "./actions";
+import ViewcakeLogo from "@/components/brand/viewcake-logo";
 
 export default function RegisterPage() {
   const [state, action, isPending] = useActionState(registerAction, {
@@ -12,8 +13,11 @@ export default function RegisterPage() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
+        <div className="mb-6">
+          <ViewcakeLogo size="sm" />
+        </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Create account</h1>
-        <p className="text-sm text-gray-500 mb-8">Set up your Viewcake presenter account</p>
+        <p className="text-sm text-gray-500 mb-8">Set up your presenter account</p>
 
         {state.error && (
           <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
