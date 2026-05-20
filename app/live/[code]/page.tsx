@@ -1,13 +1,10 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { slideImageUrl } from "@/lib/pdf/slide-image-url";
-import SlidePoller from "@/components/audience/slide-poller";
 import JoinGate from "@/components/audience/join-gate";
-import AudienceActions from "@/components/audience/audience-actions";
-import AudienceNotes from "@/components/audience/audience-notes";
 import AudienceTakeaways from "@/components/audience/audience-takeaways";
 import ViewcakeLogo from "@/components/brand/viewcake-logo";
+import LiveSlideView from "@/components/audience/live-slide-view";
 
 export const dynamic = "force-dynamic";
 
@@ -37,61 +34,42 @@ export default async function LiveSessionPage({
     0,
     Math.min(session.currentSlideIndex, slides.length - 1)
   );
-  const activeSlide = slides[currentIndex] ?? null;
+  const rawActive = slides[currentIndex] ?? null;
+
+  // Resolve image URL server-side for the initial render
+  const initialSlide = rawActive
+    ? {
+        id: rawActive.id,
+        order: rawActive.order,
+        title: rawActive.title,
+        imageUrl: rawActive.imagePath ? slideImageUrl(rawActive.imagePath) : null,
+      }
+    : null;
 
   return (
     <JoinGate sessionId={session.id} sessionCode={session.code}>
       <div className="min-h-screen bg-white flex flex-col">
-        <SlidePoller />
 
-        <header className="border-b border-gray-200 px-5 h-12 flex items-center justify-between">
+        <header className="border-b border-gray-200 px-5 h-12 flex items-center justify-between shrink-0">
           <ViewcakeLogo size="sm" />
           <span className="text-xs font-mono text-gray-400 tracking-widest">
             {session.code}
           </span>
         </header>
 
-        <div className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <p className="text-sm font-medium text-gray-700">
-              {session.presentation.title}
-            </p>
-            {slides.length > 0 && (
-              <span className="text-xs text-gray-400 tabular-nums">
-                {currentIndex + 1} / {slides.length}
-              </span>
-            )}
-          </div>
-
-          <div className="w-full max-w-2xl aspect-video bg-gray-100 rounded-xl overflow-hidden relative flex items-center justify-center mb-6">
-            {activeSlide?.imagePath ? (
-              <Image
-                src={slideImageUrl(activeSlide.imagePath)}
-                alt={activeSlide.title ?? `Slide ${activeSlide.order}`}
-                fill
-                className="object-contain"
-                priority
-              />
-            ) : (
-              <p className="text-gray-400 text-sm">
-                {slides.length === 0
-                  ? "Waiting for presenter to share a slide…"
-                  : `Slide ${activeSlide?.order ?? 1}`}
-              </p>
-            )}
-          </div>
-
-          <AudienceActions
-            sessionId={session.id}
-            sessionCode={session.code}
-            slideId={activeSlide?.id ?? null}
-          />
-        </div>
-
-        <AudienceNotes
-          sessionId={session.id}
+        {/*
+          LiveSlideView owns the active slide state and polls
+          /api/live/[code]/state every 3s instead of re-rendering
+          the whole route. It renders the slide canvas, AudienceActions,
+          and AudienceNotes so all three always share the same slideId.
+        */}
+        <LiveSlideView
           sessionCode={session.code}
-          slideId={activeSlide?.id ?? null}
+          sessionId={session.id}
+          presentationTitle={session.presentation.title}
+          totalSlides={slides.length}
+          initialIndex={currentIndex}
+          initialSlide={initialSlide}
         />
 
         <AudienceTakeaways sessionCode={session.code} />
