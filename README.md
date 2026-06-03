@@ -1,3 +1,14 @@
+# Tech Stack
+
+![Video Review Platform](https://img.shields.io/badge/Video_Review_Platform-111827?style=for-the-badge)
+![Client Feedback](https://img.shields.io/badge/Client_Feedback-2563EB?style=for-the-badge)
+![Timestamp Comments](https://img.shields.io/badge/Timestamp_Comments-7C3AED?style=for-the-badge)
+![Project Approval](https://img.shields.io/badge/Project_Approval-0F766E?style=for-the-badge)
+![Media Workflow](https://img.shields.io/badge/Media_Workflow-E11D48?style=for-the-badge)
+![Revision Tracking](https://img.shields.io/badge/Revision_Tracking-F97316?style=for-the-badge)
+![Asset Delivery](https://img.shields.io/badge/Asset_Delivery-475569?style=for-the-badge)
+![Production Server](https://img.shields.io/badge/Production_Server-DC2626?style=for-the-badge)
+
 # Viewcake
 
 Viewcake is a real-time presentation amplification platform.
