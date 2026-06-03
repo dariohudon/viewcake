@@ -1,13 +1,13 @@
 # Tech Stack
 
-![Video Review Platform](https://img.shields.io/badge/Video_Review_Platform-111827?style=for-the-badge)
-![Client Feedback](https://img.shields.io/badge/Client_Feedback-2563EB?style=for-the-badge)
-![Timestamp Comments](https://img.shields.io/badge/Timestamp_Comments-7C3AED?style=for-the-badge)
-![Project Approval](https://img.shields.io/badge/Project_Approval-0F766E?style=for-the-badge)
-![Media Workflow](https://img.shields.io/badge/Media_Workflow-E11D48?style=for-the-badge)
-![Revision Tracking](https://img.shields.io/badge/Revision_Tracking-F97316?style=for-the-badge)
-![Asset Delivery](https://img.shields.io/badge/Asset_Delivery-475569?style=for-the-badge)
-![Production Server](https://img.shields.io/badge/Production_Server-DC2626?style=for-the-badge)
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwindcss&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![PM2](https://img.shields.io/badge/PM2-2B037A?style=for-the-badge&logo=pm2&logoColor=white)
+![Nginx](https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white)
+![Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)
 
 # Viewcake
 
